@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Select from 'react-select';
-import { Play, Printer, ChevronDown, CheckCircle, LayoutGrid, List, Table2, FileText, Grid3X3, ChevronLeft, ChevronRight, User, Filter, X, SlidersHorizontal } from 'lucide-react';
+import { Play, Printer, ChevronDown, CheckCircle, FileText, Grid3X3, ChevronLeft, ChevronRight, User, Filter, X, SlidersHorizontal } from 'lucide-react';
 import { getExams, getStudents, getRooms, getSeatingAllocations, getInvigilationAllocations, getFaculty } from '../data/store';
 import { generateSeatingAllocation } from '../data/algorithms';
 import { getCourseForSection, MORNING_SCHEDULE } from '../data/morningShiftData';
-import { PROGRAMMES, SEMESTERS_BY_PROGRAMME, YEAR_FROM_SEM, getCoursesFor, getCourseNameByCode, getProgrammeFromSection } from '../data/filterData';
+import { PROGRAMMES, SEMESTERS_BY_PROGRAMME, YEAR_FROM_SEM, getCoursesFor, getCourseNameByCode, getProgrammeFromSection, getCourseForStudentSection, BRANCHES_BY_PROGRAMME } from '../data/filterData';
+import SeatingTable from '../components/SeatingTable';
 function formatDate(d) {
   if (!d) return '';
   return new Date(d).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
@@ -66,53 +67,101 @@ function FilterBadge({ label, onRemove }) {
 }
 
 const TABS = [
-  { id: 'seating',  label: 'Seating Plan',   icon: LayoutGrid },
-  { id: 'master',   label: 'Master Summary', icon: List },
-  { id: 'room',     label: 'Room Summary',   icon: Table2 },
-  { id: 'students', label: 'Student List',   icon: FileText },
-  { id: 'roomplan', label: 'Room Plan',      icon: Grid3X3 },
+  { id: 'students', label: 'Student List', icon: FileText },
+  { id: 'roomplan', label: 'Room Plan',    icon: Grid3X3 },
 ];
 export default function SeatingAllocation() {
-  const allExams    = getExams();
-  const allRooms    = getRooms();
-  const allStudents = getStudents();
+  const [refresh, setRefresh] = useState(0);
+
+  // Re-read from localStorage whenever refresh changes
+  const allExams    = useMemo(() => { void refresh; return getExams(); },    [refresh]);
+  const allRooms    = useMemo(() => { void refresh; return getRooms(); },    [refresh]);
+  const allStudents = useMemo(() => { void refresh; return getStudents(); }, [refresh]);
 
   const [selectedDate,   setSelectedDate]   = useState('');
   const [selectedShift,  setSelectedShift]  = useState('');
-  const [activeTab,      setActiveTab]      = useState('seating');
-  const [refresh,        setRefresh]        = useState(0);
+  const [activeTab,      setActiveTab]      = useState('students');
   const [roomNavIdx,     setRoomNavIdx]     = useState(0);
   const [selectedCourse, setSelectedCourse] = useState(null);
 
   const [filters, setFilters] = useState({
     programme: null,
+    branch:    null,
     semester:  null,
     year:      null,
     courseCode: null,
     courseName: '',
     roomNo:    null,
   });
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  // pendingFilters = what the user is currently selecting in the UI
+  // appliedFilters = what was last confirmed with "View Results"
+  const [pendingFilters, setPendingFilters] = useState({
+    programme: null, branch: null, semester: null, year: null,
+    courseCode: null, courseName: '', roomNo: null,
+  });
+  const [filtersApplied, setFiltersApplied] = useState(false);
 
   const updateFilter = (key, value) => {
-    setFilters(prev => {
+    setPendingFilters(prev => {
       const next = { ...prev, [key]: value };
-      if (key === 'programme') { next.semester = null; next.year = null; next.courseCode = null; next.courseName = ''; }
-      if (key === 'semester')  { next.year = value ? { value: YEAR_FROM_SEM[value.value], label: YEAR_FROM_SEM[value.value] } : null; next.courseCode = null; next.courseName = ''; }
-      if (key === 'courseCode') { next.courseName = value ? getCourseNameByCode(value.value) : ''; }
+
+      if (key === 'programme') {
+        next.branch     = null;
+        next.semester   = null;
+        next.year       = null;
+        next.courseCode = null;
+        next.courseName = '';
+      }
+
+      if (key === 'branch') {
+        next.courseCode = null;
+        next.courseName = '';
+      }
+
+      if (key === 'semester') {
+        next.year = value
+          ? { value: YEAR_FROM_SEM[value.value], label: YEAR_FROM_SEM[value.value] }
+          : null;
+        next.courseCode = null;
+        next.courseName = '';
+      }
+
+      if (key === 'courseCode') {
+        if (!value || value.length === 0) {
+          next.courseName = '';
+        } else if (value.length === 1) {
+          next.courseName = getCourseNameByCode(value[0].value);
+        } else {
+          next.courseName = value.map(v => getCourseNameByCode(v.value)).filter(Boolean).join(', ');
+        }
+      }
+
       return next;
     });
   };
 
-  const clearFilters = () => setFilters({ programme: null, semester: null, year: null, courseCode: null, courseName: '', roomNo: null });
+  const clearFilters = () => {
+    const empty = { programme: null, branch: null, semester: null, year: null, courseCode: null, courseName: '', roomNo: null };
+    setPendingFilters(empty);
+    setFilters(empty);
+    setFiltersApplied(false);
+  };
+
+  const applyFilters = () => {
+    setFilters(pendingFilters);
+    setFiltersApplied(true);
+  };
+
   const hasFilters = Object.values(filters).some(v => v !== null && v !== '');
+  const hasPendingFilters = Object.values(pendingFilters).some(v => v !== null && v !== '');
 
   const activeFilterCount = [
-    filters.programme,
-    filters.semester,
-    filters.year,
-    filters.courseCode && filters.courseCode.length > 0 ? filters.courseCode : null,
-    filters.roomNo,
+    pendingFilters.programme,
+    pendingFilters.branch,
+    pendingFilters.semester,
+    pendingFilters.year,
+    pendingFilters.courseCode && pendingFilters.courseCode.length > 0 ? pendingFilters.courseCode : null,
+    pendingFilters.roomNo,
   ].filter(Boolean).length;
 
   const dateGroups  = useMemo(() => groupByDate(allExams), [allExams]);
@@ -128,15 +177,27 @@ export default function SeatingAllocation() {
       const entry = getCourseForSection(examId, section);
       if (entry) return { code: entry.courseCode, name: entry.courseName };
     }
-    return { code: 'CS202', name: 'Software Engineering' };
+    // Evening shift — derive course from student section
+    const fromSection = getCourseForStudentSection(section);
+    if (fromSection) return fromSection;
+    return { code: '--', name: '--' };
   };
 
   const rawAllocs = useMemo(() => {
-    void refresh;
     return getSeatingAllocations().filter(a => activeExamIds.has(a.exam_id));
   }, [activeExamIds, refresh]);
 
+  // True once there are seating allocations for the selected shift
   const isAllocated = rawAllocs.length > 0;
+
+  // When shift changes, reset all filters
+  useEffect(() => {
+    const empty = { programme: null, branch: null, semester: null, year: null, courseCode: null, courseName: '', roomNo: null };
+    setFilters(empty);
+    setPendingFilters(empty);
+    setFiltersApplied(false);
+    setSelectedCourse(null);
+  }, [selectedShift]);
 
   const enrichedAllocs = useMemo(() => {
     const studentMap = Object.fromEntries(allStudents.map(s => [s.student_id, s]));
@@ -149,10 +210,46 @@ export default function SeatingAllocation() {
     });
   }, [rawAllocs, allStudents, allRooms, selectedShift]);
 
-  const advancedFiltered = useMemo(() => {
-    let data = enrichedAllocs;
+  // Auto-fill course code + name from actual exam data
+  useEffect(() => {
+    if (!pendingFilters.programme || !pendingFilters.semester || enrichedAllocs.length === 0) {
+      if (enrichedAllocs.length === 0) {
+        setPendingFilters(prev => ({ ...prev, courseCode: null, courseName: '' }));
+      }
+      return;
+    }
+
+    const matched = enrichedAllocs.filter(a => {
+      const progMatch   = getProgrammeFromSection(a.student?.section) === pendingFilters.programme.value;
+      const semMatch    = Number(a.student?.semester) === Number(pendingFilters.semester.value);
+      const branchMatch = !pendingFilters.branch || a.student?.branch === pendingFilters.branch.value;
+      return progMatch && semMatch && branchMatch;
+    });
+
+    if (matched.length === 0) {
+      setPendingFilters(prev => ({ ...prev, courseCode: null, courseName: '' }));
+      return;
+    }
+
+    const seen = new Map();
+    matched.forEach(a => {
+      if (a.course.code && a.course.code !== '--') seen.set(a.course.code, a.course.name);
+    });
+
+    if (seen.size === 1) {
+      const [[code, name]] = seen.entries();
+      setPendingFilters(prev => ({ ...prev, courseCode: [{ value: code, label: code }], courseName: name }));
+    } else {
+      setPendingFilters(prev => ({ ...prev, courseCode: null, courseName: '' }));
+    }
+  }, [pendingFilters.programme, pendingFilters.branch, pendingFilters.semester, enrichedAllocs]);
+
+  const advancedFiltered = useMemo(() => {    let data = enrichedAllocs;
     if (filters.programme) {
       data = data.filter(a => getProgrammeFromSection(a.student?.section) === filters.programme.value);
+    }
+    if (filters.branch) {
+      data = data.filter(a => a.student?.branch === filters.branch.value);
     }
     if (filters.semester) {
       data = data.filter(a => Number(a.student?.semester) === Number(filters.semester.value));
@@ -190,36 +287,110 @@ export default function SeatingAllocation() {
   }, [advancedFiltered, allRooms]);
 
   const currentPlanRoom = planRooms[roomNavIdx] || null;
+
+  // Room Plan always shows ALL students in the room (ignores filters)
+  // so the interleaving algorithm can mix all courses present in that room
   const roomPlanStudents = useMemo(() => {
     if (!currentPlanRoom) return [];
-    return advancedFiltered.filter(a => a.room_id === currentPlanRoom.room_id).sort((a, b) => a.seat_no - b.seat_no);
-  }, [advancedFiltered, currentPlanRoom]);
+    return enrichedAllocs
+      .filter(a => a.room_id === currentPlanRoom.room_id)
+      .sort((a, b) => a.seat_no - b.seat_no);
+  }, [enrichedAllocs, currentPlanRoom]);
 
   const handleAutoAllocate = () => {
     if (!selectedShift || activeExams.length === 0) return;
-    const studentIds = allStudents.map(s => s.student_id);
-    const roomIds    = allRooms.map(r => r.room_id);
-    if (studentIds.length === 0) { alert('No students found. Please seed data first.'); return; }
-    if (roomIds.length === 0)    { alert('No rooms found. Please add rooms first.'); return; }
-    const result = generateSeatingAllocation(activeExams[0].exam_id, studentIds, roomIds);
-    if (result.success) { setRefresh(r => r + 1); setActiveTab('seating'); }
+
+    // Only allocate students who are part of this exam's sections
+    let examStudentIds;
+    if (selectedShift === 'Morning') {
+      // Morning: students whose section appears in MORNING_SCHEDULE for these exam IDs
+      const scheduledSections = new Set(
+        MORNING_SCHEDULE
+          .filter(s => activeExamIds.has(s.examId))
+          .map(s => s.section)
+      );
+      examStudentIds = allStudents
+        .filter(s => scheduledSections.has(s.section))
+        .map(s => s.student_id);
+    } else {
+      // Evening: students from the evening seed (student_id 20000–29999)
+      examStudentIds = allStudents
+        .filter(s => s.student_id >= 20000 && s.student_id < 30000)
+        .map(s => s.student_id);
+    }
+
+    const roomIds = allRooms.map(r => r.room_id);
+    if (examStudentIds.length === 0) { alert('No students found for this exam. Please seed data first.'); return; }
+    if (roomIds.length === 0)        { alert('No rooms found. Please add rooms first.'); return; }
+
+    const result = generateSeatingAllocation(activeExams[0].exam_id, examStudentIds, roomIds);
+    if (result.success) { setRefresh(r => r + 1); setActiveTab('students'); setFiltersApplied(true); }
     else alert(result.message);
   };
 
+  const programmeOptions = useMemo(() => {
+    if (enrichedAllocs.length === 0) return [];
+    const seen = new Set();
+    enrichedAllocs.forEach(a => {
+      const prog = getProgrammeFromSection(a.student?.section);
+      if (prog) seen.add(prog);
+    });
+    return PROGRAMMES.filter(p => seen.has(p.value));
+  }, [enrichedAllocs]);
+
+  const branchOptions = useMemo(() => {
+    if (!pendingFilters.programme || enrichedAllocs.length === 0) return [];
+    const seen = new Set();
+    enrichedAllocs.forEach(a => {
+      if (getProgrammeFromSection(a.student?.section) === pendingFilters.programme.value && a.student?.branch)
+        seen.add(a.student.branch);
+    });
+    return [...seen].sort().map(b => ({ value: b, label: b }));
+  }, [pendingFilters.programme, enrichedAllocs]);
+
   const semesterOptions = useMemo(() => {
-    if (!filters.programme) return [];
-    const sems = SEMESTERS_BY_PROGRAMME[filters.programme.value] || [];
-    return sems.map(n => ({ value: n, label: 'Sem ' + toRoman(n) }));
-  }, [filters.programme]);
+    if (!pendingFilters.programme || enrichedAllocs.length === 0) return [];
+    const seen = new Set();
+    enrichedAllocs.forEach(a => {
+      const progMatch   = getProgrammeFromSection(a.student?.section) === pendingFilters.programme.value;
+      const branchMatch = !pendingFilters.branch || a.student?.branch === pendingFilters.branch.value;
+      if (progMatch && branchMatch && a.student?.semester) seen.add(Number(a.student.semester));
+    });
+    return [...seen].sort((a, b) => a - b).map(n => ({ value: n, label: 'Sem ' + toRoman(n) }));
+  }, [pendingFilters.programme, pendingFilters.branch, enrichedAllocs]);
 
   const courseCodeOptions = useMemo(() => {
-    const courses = getCoursesFor(filters.programme?.value, filters.semester?.value);
-    return courses.map(c => ({ value: c.code, label: c.code }));
-  }, [filters.programme, filters.semester]);
+    if (enrichedAllocs.length === 0) return [];
+    const relevant = enrichedAllocs.filter(a =>
+      (!pendingFilters.programme || getProgrammeFromSection(a.student?.section) === pendingFilters.programme.value) &&
+      (!pendingFilters.branch    || a.student?.branch === pendingFilters.branch.value) &&
+      (!pendingFilters.semester  || Number(a.student?.semester) === Number(pendingFilters.semester.value))
+    );
+    const seen = new Map();
+    relevant.forEach(a => {
+      if (a.course.code && a.course.code !== '--') seen.set(a.course.code, a.course.name);
+    });
+    return [...seen.keys()].map(code => ({ value: code, label: code }));
+  }, [pendingFilters.programme, pendingFilters.branch, pendingFilters.semester, enrichedAllocs]);
 
   const roomOptions = useMemo(() => {
-    return allRooms.map(r => ({ value: r.room_id, label: r.room_no + ' -- ' + r.building }));
-  }, [allRooms]);
+    if (enrichedAllocs.length > 0) {
+      const relevant = enrichedAllocs.filter(a =>
+        (!pendingFilters.programme || getProgrammeFromSection(a.student?.section) === pendingFilters.programme.value) &&
+        (!pendingFilters.branch    || a.student?.branch === pendingFilters.branch.value) &&
+        (!pendingFilters.semester  || Number(a.student?.semester) === Number(pendingFilters.semester.value)) &&
+        (!pendingFilters.courseCode?.length || pendingFilters.courseCode.some(c => c.value === a.course.code))
+      );
+      const activeRoomIds = new Set(relevant.map(a => a.room_id));
+      return allRooms
+        .filter(r => activeRoomIds.has(r.room_id))
+        .sort((a, b) => a.room_no.localeCompare(b.room_no))
+        .map(r => ({ value: r.room_id, label: r.room_no + ' — ' + r.building }));
+    }
+    return allRooms
+      .sort((a, b) => a.room_no.localeCompare(b.room_no))
+      .map(r => ({ value: r.room_id, label: r.room_no + ' — ' + r.building }));
+  }, [allRooms, enrichedAllocs, pendingFilters.programme, pendingFilters.branch, pendingFilters.semester, pendingFilters.courseCode]);
 
   const yearOptions = [
     { value: '1st Year', label: '1st Year' },
@@ -266,95 +437,6 @@ export default function SeatingAllocation() {
           </div>
         </div>
 
-        {/* Advanced Filters */}
-        {selectedDate && (
-          <div className="bg-white rounded-2xl border shadow-sm mb-4" style={{ borderColor: '#d1fae5' }}>
-            <button
-              onClick={() => setFiltersOpen(o => !o)}
-              className="w-full flex items-center justify-between px-5 py-3 border-b"
-              style={{ borderColor: '#d1fae5' }}
-            >
-              <div className="flex items-center gap-2">
-                <SlidersHorizontal className="w-4 h-4" style={{ color: '#16a34a' }} />
-                <span className="text-sm font-semibold text-gray-700">Advanced Filters</span>
-                {activeFilterCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{ background: '#16a34a' }}>
-                    {activeFilterCount}
-                  </span>
-                )}
-              </div>
-              <ChevronDown
-                className="w-4 h-4 text-gray-400 transition-transform"
-                style={{ transform: filtersOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
-              />
-            </button>
-
-            {filtersOpen && (
-              <div className="px-5 py-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Programme</label>
-                    <Select styles={selectStyles} options={PROGRAMMES} value={filters.programme}
-                      onChange={v => updateFilter('programme', v)} placeholder="Select programme..." isClearable />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Semester</label>
-                    <Select styles={selectStyles} options={semesterOptions} value={filters.semester}
-                      onChange={v => updateFilter('semester', v)}
-                      placeholder={filters.programme ? 'Select semester...' : 'Select programme first'}
-                      isDisabled={!filters.programme} isClearable />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Year</label>
-                    <Select styles={selectStyles} options={yearOptions} value={filters.year}
-                      onChange={v => updateFilter('year', v)} placeholder="Auto-filled from semester" isClearable />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Course Code</label>
-                    <Select styles={selectStyles} options={courseCodeOptions} value={filters.courseCode}
-                      onChange={v => updateFilter('courseCode', v)}
-                      placeholder={filters.programme ? 'Search course code...' : 'Select programme first'}
-                      isDisabled={!filters.programme} isMulti isSearchable />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Course Name</label>
-                    <input type="text" readOnly value={filters.courseName}
-                      placeholder="Select a course code first"
-                      className="w-full px-3 py-2 rounded-xl border text-sm text-gray-600 bg-gray-50 cursor-default focus:outline-none"
-                      style={{ borderColor: '#d1fae5', fontSize: '13px' }} />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Room Number</label>
-                    <Select styles={selectStyles} options={roomOptions} value={filters.roomNo}
-                      onChange={v => updateFilter('roomNo', v)} placeholder="Filter by room..." isClearable />
-                  </div>
-                </div>
-                <div className="flex items-center justify-between mt-4 pt-3 border-t" style={{ borderColor: '#d1fae5' }}>
-                  <span className="text-xs text-gray-400">
-                    {activeFilterCount > 0 ? activeFilterCount + ' filter' + (activeFilterCount > 1 ? 's' : '') + ' active' : 'No filters applied'}
-                  </span>
-                  {hasFilters && (
-                    <button onClick={clearFilters}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 transition-colors">
-                      <X className="w-3 h-3" /> Clear Filters
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Active filter badges */}
-        {selectedDate && hasFilters && (
-          <div className="flex flex-wrap gap-2 mb-3">
-            {filters.programme && <FilterBadge label={'Programme: ' + filters.programme.label} onRemove={() => updateFilter('programme', null)} />}
-            {filters.semester  && <FilterBadge label={'Semester: ' + filters.semester.label}   onRemove={() => updateFilter('semester', null)} />}
-            {filters.year      && <FilterBadge label={'Year: ' + filters.year.label}            onRemove={() => updateFilter('year', null)} />}
-            {filters.courseCode?.length > 0 && <FilterBadge label={'Courses: ' + filters.courseCode.map(c => c.value).join(', ')} onRemove={() => updateFilter('courseCode', null)} />}
-            {filters.roomNo    && <FilterBadge label={'Room: ' + filters.roomNo.label}          onRemove={() => updateFilter('roomNo', null)} />}
-          </div>
-        )}
         {/* Step 2: Select Shift */}
         {selectedDate && (
           <div className="bg-white rounded-2xl border border-gray-200 mb-4 shadow-sm">
@@ -416,8 +498,100 @@ export default function SeatingAllocation() {
           </div>
         )}
 
+        {/* Step 3: Advanced Filters — always visible after shift selected */}
+        {selectedShift && isAllocated && (
+          <div className="bg-white rounded-2xl border border-gray-200 mb-4 shadow-sm">
+            <div className="px-5 py-3 border-b border-gray-100">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Step 3 -- Filter Results</p>
+            </div>
+            <div className="px-5 py-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Programme</label>
+                  <Select styles={selectStyles} options={programmeOptions} value={pendingFilters.programme}
+                    onChange={v => updateFilter('programme', v)} placeholder="Select programme..." isClearable />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Branch</label>
+                  <Select styles={selectStyles} options={branchOptions} value={pendingFilters.branch}
+                    onChange={v => updateFilter('branch', v)}
+                    placeholder={pendingFilters.programme ? 'Select branch...' : 'Select programme first'}
+                    isDisabled={!pendingFilters.programme} isClearable />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Semester</label>
+                  <Select styles={selectStyles} options={semesterOptions} value={pendingFilters.semester}
+                    onChange={v => updateFilter('semester', v)}
+                    placeholder={pendingFilters.programme ? 'Select semester...' : 'Select programme first'}
+                    isDisabled={!pendingFilters.programme} isClearable />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Year</label>
+                  <Select styles={selectStyles} options={yearOptions} value={pendingFilters.year}
+                    onChange={v => updateFilter('year', v)} placeholder="Auto-filled from semester" isClearable />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Course Code</label>
+                  <Select styles={selectStyles} options={courseCodeOptions} value={pendingFilters.courseCode}
+                    onChange={v => updateFilter('courseCode', v)}
+                    placeholder={pendingFilters.programme ? 'Search course code...' : 'Select programme first'}
+                    isDisabled={!pendingFilters.programme} isMulti isSearchable />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Course Name</label>
+                  <textarea readOnly value={pendingFilters.courseName}
+                    placeholder="Auto-filled when programme &amp; semester are selected"
+                    rows={pendingFilters.courseName && pendingFilters.courseName.includes(',') ? 3 : 1}
+                    className="w-full px-3 py-2 rounded-xl border text-sm text-gray-600 bg-gray-50 cursor-default focus:outline-none resize-none"
+                    style={{ borderColor: '#e5e7eb', fontSize: '13px', lineHeight: '1.5' }} />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Room Number</label>
+                  <Select styles={selectStyles} options={roomOptions} value={pendingFilters.roomNo}
+                    onChange={v => updateFilter('roomNo', v)} placeholder="Filter by room..." isClearable />
+                </div>
+              </div>
+
+              {/* Action row */}
+              <div className="flex items-center gap-3 pt-3 border-t border-gray-100">
+                <button
+                  onClick={applyFilters}
+                  className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold text-white transition-colors"
+                  style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)' }}
+                >
+                  <Filter className="w-3.5 h-3.5" />
+                  View Results
+                </button>
+                {hasPendingFilters && (
+                  <button onClick={clearFilters}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-red-600 hover:bg-red-50 border border-red-200 transition-colors">
+                    <X className="w-3.5 h-3.5" /> Clear
+                  </button>
+                )}
+                {activeFilterCount > 0 && (
+                  <span className="text-xs text-gray-400 ml-1">
+                    {activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''} selected
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Active filter badges */}
+        {filtersApplied && hasFilters && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            {filters.programme && <FilterBadge label={'Programme: ' + filters.programme.label} onRemove={() => { updateFilter('programme', null); applyFilters(); }} />}
+            {filters.branch    && <FilterBadge label={'Branch: ' + filters.branch.label}       onRemove={() => { updateFilter('branch', null);    applyFilters(); }} />}
+            {filters.semester  && <FilterBadge label={'Semester: ' + filters.semester.label}   onRemove={() => { updateFilter('semester', null);  applyFilters(); }} />}
+            {filters.year      && <FilterBadge label={'Year: ' + filters.year.label}           onRemove={() => { updateFilter('year', null);      applyFilters(); }} />}
+            {filters.courseCode?.length > 0 && <FilterBadge label={'Courses: ' + filters.courseCode.map(c => c.value).join(', ')} onRemove={() => { updateFilter('courseCode', null); applyFilters(); }} />}
+            {filters.roomNo    && <FilterBadge label={'Room: ' + filters.roomNo.label}         onRemove={() => { updateFilter('roomNo', null);    applyFilters(); }} />}
+          </div>
+        )}
+
         {/* Course filter chips */}
-        {selectedShift && isAllocated && uniqueCourses.length > 0 && (
+        {selectedShift && isAllocated && filtersApplied && uniqueCourses.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-4">
             <button
               onClick={() => setSelectedCourse(null)}
@@ -440,7 +614,7 @@ export default function SeatingAllocation() {
         )}
 
         {/* Stats bar */}
-        {selectedShift && isAllocated && (
+        {selectedShift && isAllocated && filtersApplied && (
           <div className="flex items-center gap-6 mb-5 text-sm text-gray-600 flex-wrap">
             <span>Students: <strong className="text-gray-900">{totalStudents}</strong></span>
             <span className="text-gray-300">|</span>
@@ -454,7 +628,7 @@ export default function SeatingAllocation() {
         )}
 
         {/* No results state */}
-        {selectedShift && isAllocated && advancedFiltered.length === 0 && (
+        {selectedShift && isAllocated && filtersApplied && advancedFiltered.length === 0 && (
           <div className="bg-white rounded-2xl border border-dashed p-12 text-center" style={{ borderColor: '#d1fae5' }}>
             <Filter className="w-10 h-10 mx-auto mb-3 opacity-30" style={{ color: '#16a34a' }} />
             <p className="font-semibold text-gray-600">No students match the current filters</p>
@@ -466,7 +640,7 @@ export default function SeatingAllocation() {
           </div>
         )}
         {/* Tabs */}
-        {selectedShift && isAllocated && advancedFiltered.length > 0 && (
+        {selectedShift && isAllocated && filtersApplied && advancedFiltered.length > 0 && (
           <>
             <div className="flex gap-1 mb-4 bg-white rounded-2xl border border-gray-200 p-1 shadow-sm w-fit">
               {TABS.map(tab => {
@@ -483,9 +657,6 @@ export default function SeatingAllocation() {
               })}
             </div>
 
-            {activeTab === 'seating'  && <SeatingPlanTab  filtered={filtered} allRooms={allRooms} />}
-            {activeTab === 'master'   && <MasterSummaryTab filtered={filtered} />}
-            {activeTab === 'room'     && <RoomSummaryTab  filtered={filtered} allRooms={allRooms} />}
             {activeTab === 'students' && <StudentListTab  filtered={filtered} />}
             {activeTab === 'roomplan' && (
               <RoomPlanTab
@@ -494,6 +665,8 @@ export default function SeatingAllocation() {
                 setRoomNavIdx={setRoomNavIdx}
                 currentPlanRoom={currentPlanRoom}
                 roomPlanStudents={roomPlanStudents}
+                selectedShift={selectedShift}
+                selectedDate={selectedDate}
               />
             )}
           </>
@@ -502,7 +675,7 @@ export default function SeatingAllocation() {
         {/* Empty state */}
         {selectedShift && !isAllocated && (
           <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-12 text-center">
-            <LayoutGrid className="w-10 h-10 mx-auto mb-3 text-gray-300" />
+            <Grid3X3 className="w-10 h-10 mx-auto mb-3 text-gray-300" />
             <p className="font-semibold text-gray-500">No seating allocation yet</p>
             <p className="text-sm text-gray-400 mt-1">Click <strong>Auto Allocate</strong> to generate the seating plan.</p>
           </div>
@@ -754,37 +927,38 @@ function StudentListTab({ filtered }) {
   );
 }
 // ---- RoomPlanTab ----
-function RoomPlanTab({ planRooms, roomNavIdx, setRoomNavIdx, currentPlanRoom, roomPlanStudents }) {
+function RoomPlanTab({ planRooms, roomNavIdx, setRoomNavIdx, currentPlanRoom, roomPlanStudents, selectedShift, selectedDate }) {
   if (planRooms.length === 0) return <EmptyFiltered />;
 
-  const courses = [...new Set(roomPlanStudents.map(s => s.course.code))];
-  const cols = 6;
+  const shiftLabel = selectedShift === 'Morning'
+    ? 'Morning Shift (10:00 am – 11:30 am)'
+    : 'Evening Shift (03:00 pm – 04:30 pm)';
+
+  const dateLabel = selectedDate
+    ? new Date(selectedDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')
+    : '';
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50">
-        <button
-          onClick={() => setRoomNavIdx(i => Math.max(0, i - 1))}
-          disabled={roomNavIdx === 0}
-          className="p-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
-        >
+      {/* Room navigation */}
+      <div className="room-nav flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50">
+        <button onClick={() => setRoomNavIdx(i => Math.max(0, i - 1))} disabled={roomNavIdx === 0}
+          className="p-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed">
           <ChevronLeft className="w-4 h-4" />
         </button>
         <div className="text-center">
           <p className="font-bold text-gray-800">{currentPlanRoom?.room_no}</p>
           <p className="text-xs text-gray-400">{currentPlanRoom?.building} &middot; {roomPlanStudents.length} students</p>
         </div>
-        <button
-          onClick={() => setRoomNavIdx(i => Math.min(planRooms.length - 1, i + 1))}
-          disabled={roomNavIdx === planRooms.length - 1}
-          className="p-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
-        >
+        <button onClick={() => setRoomNavIdx(i => Math.min(planRooms.length - 1, i + 1))} disabled={roomNavIdx === planRooms.length - 1}
+          className="p-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed">
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>
 
+      {/* Room dot nav */}
       {planRooms.length > 1 && (
-        <div className="flex justify-center gap-1.5 py-2 border-b border-gray-100">
+        <div className="room-dots flex justify-center gap-1.5 py-2 border-b border-gray-100">
           {planRooms.map((r, i) => (
             <button key={r.room_id} onClick={() => setRoomNavIdx(i)}
               className="w-2 h-2 rounded-full transition-all"
@@ -794,49 +968,13 @@ function RoomPlanTab({ planRooms, roomNavIdx, setRoomNavIdx, currentPlanRoom, ro
         </div>
       )}
 
-      {courses.length > 0 && (
-        <div className="flex flex-wrap gap-2 px-5 py-3 border-b border-gray-100">
-          {courses.map((code, i) => {
-            const col = chipColor(i);
-            return (
-              <span key={code} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
-                style={{ background: col.bg, color: col.text, border: '1px solid ' + col.border }}>
-                <span className="w-2 h-2 rounded-full inline-block" style={{ background: col.text }} />
-                {code}
-              </span>
-            );
-          })}
-        </div>
-      )}
-
-      <div className="p-5">
-        <div className="w-full py-2 mb-6 rounded-xl text-center text-xs font-bold text-white"
-          style={{ background: 'linear-gradient(135deg,#1e293b,#334155)' }}>
-          BLACKBOARD / FRONT
-        </div>
-
-        <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(' + cols + ', minmax(0, 1fr))' }}>
-          {roomPlanStudents.map(a => {
-            const courseIdx = courses.indexOf(a.course.code);
-            const col = chipColor(courseIdx >= 0 ? courseIdx : 0);
-            return (
-              <div key={a.allocation_id}
-                className="rounded-xl border p-2 text-center text-xs cursor-default hover:shadow-md transition-shadow"
-                style={{ background: col.bg, borderColor: col.border }}>
-                <div className="font-bold text-gray-600 text-xs mb-0.5">S{a.seat_no}</div>
-                <div className="font-semibold truncate text-xs" style={{ color: col.text }}>
-                  {a.student?.roll_no?.slice(-6) || '--'}
-                </div>
-                <div className="text-gray-400 text-xs mt-0.5">{a.course.code}</div>
-              </div>
-            );
-          })}
-        </div>
-
-        {roomPlanStudents.length === 0 && (
-          <div className="text-center py-8 text-gray-400 text-sm">No students in this room</div>
-        )}
-      </div>
+      {/* Seating table — the real layout */}
+      <SeatingTable
+        room={currentPlanRoom}
+        examDate={dateLabel}
+        shift={shiftLabel}
+        allocations={roomPlanStudents}
+      />
     </div>
   );
 }

@@ -14,7 +14,16 @@ export const PROGRAMMES = [
   { value: 'BA LLB',          label: 'BA LLB (Integrated)' },
 ];
 
-// ── Semesters per programme ───────────────────────────────────────────────────
+// ── Branches per programme ────────────────────────────────────────────────────
+export const BRANCHES_BY_PROGRAMME = {
+  'B.Tech':        ['CSE','AI','ML','DS','CySec','IT','ECE','ECE-AI','VLSI'],
+  '5Y Int B.Tech': ['ICS','IEC'],
+  'M.Tech':        ['PCS','PCW'],
+  'BCA':           ['BCA'],
+  'MCA':           ['MCA-AI'],
+  'MBA':           [],
+  'BA LLB':        [],
+};
 export const SEMESTERS_BY_PROGRAMME = {
   'B.Tech':        [1,2,3,4,5,6,7,8],
   '5Y Int B.Tech': [1,2,3,4,5,6,7,8,9,10],
@@ -44,7 +53,7 @@ export const COURSES = [
   { programme: 'B.Tech', semester: 4, branch: 'CySec',  code: 'CC202',  name: 'Software Engineering' },
   { programme: 'B.Tech', semester: 4, branch: 'IT',     code: 'IT202',  name: 'Data Structure' },
   { programme: 'B.Tech', semester: 4, branch: 'ECE',    code: 'EC228',  name: 'Electromagnetic Field Theory' },
-  { programme: 'B.Tech', semester: 4, branch: 'ECE-AI', code: 'EA202',  name: 'Electromagnetic Field Theory' },
+  { programme: 'B.Tech', semester: 4, branch: 'ECE-AI', code: 'EA202',  name: 'Electomagnatic Field Theory' },
   { programme: 'B.Tech', semester: 4, branch: 'VLSI',   code: 'EV202',  name: 'Linear Integrated Circuits' },
   // B.Tech Sem 6
   { programme: 'B.Tech', semester: 6, branch: 'AI',     code: 'AI806',  name: 'Cloud Computing' },
@@ -78,12 +87,19 @@ export const COURSES = [
   { programme: 'B.Tech', semester: 6, branch: 'IT',     code: 'IT824',  name: 'Information Retrieval and Management' },
   { programme: 'B.Tech', semester: 6, branch: 'IT',     code: 'IT308',  name: 'Information and Network Security' },
   // B.Tech Sem 2
-  { programme: 'B.Tech', semester: 2, branch: 'IT',     code: 'IT102',  name: 'Object Oriented Programming Using Java' },
-  { programme: 'B.Tech', semester: 2, branch: 'IT',     code: 'MA112',  name: 'Applied Mathematics-II' },
-  { programme: 'B.Tech', semester: 2, branch: 'IT',     code: 'EC104',  name: 'Digital Logic Design' },
-  { programme: 'B.Tech', semester: 2, branch: 'IT',     code: 'IT104',  name: 'Discrete Mathematics' },
-  { programme: 'B.Tech', semester: 2, branch: 'IT',     code: 'PH102',  name: 'Engineering Physics' },
-  { programme: 'B.Tech', semester: 2, branch: 'ECE',    code: 'EC228',  name: 'Electromagnetic Field Theory' },
+  { programme: 'B.Tech', semester: 2, branch: 'CSE',   code: 'CS102',  name: 'Object Oriented Programming' },
+  { programme: 'B.Tech', semester: 2, branch: 'AI',    code: 'AI102',  name: 'Object Oriented Programming' },
+  { programme: 'B.Tech', semester: 2, branch: 'ML',    code: 'CM102',  name: 'Object Oriented Programming' },
+  { programme: 'B.Tech', semester: 2, branch: 'DS',    code: 'CD102',  name: 'Object Oriented Programming' },
+  { programme: 'B.Tech', semester: 2, branch: 'CySec', code: 'CC102',  name: 'Object Oriented Programming' },
+  { programme: 'B.Tech', semester: 2, branch: 'IT',    code: 'IT102',  name: 'Object Oriented Programming Using Java' },
+  { programme: 'B.Tech', semester: 2, branch: 'IT',    code: 'MA112',  name: 'Applied Mathematics-II' },
+  { programme: 'B.Tech', semester: 2, branch: 'IT',    code: 'EC104',  name: 'Digital Logic Design' },
+  { programme: 'B.Tech', semester: 2, branch: 'IT',    code: 'IT104',  name: 'Discrete Mathematics' },
+  { programme: 'B.Tech', semester: 2, branch: 'IT',    code: 'PH102',  name: 'Engineering Physics' },
+  { programme: 'B.Tech', semester: 2, branch: 'ECE',   code: 'EC228',  name: 'Electromagnetic Field Theory' },
+  { programme: 'B.Tech', semester: 2, branch: 'ECE-AI',code: 'EA102',  name: 'Electromagnetic Field Theory' },
+  { programme: 'B.Tech', semester: 2, branch: 'VLSI',  code: 'EV102',  name: 'Basic Electronics' },
   // BCA
   { programme: 'BCA',    semester: 4, branch: 'BCA',    code: 'BCA202', name: 'Fundamental of Java Programming' },
   { programme: 'BCA',    semester: 2, branch: 'BCA',    code: 'ES101',  name: 'Environmental Studies' },
@@ -111,10 +127,57 @@ export const COURSES = [
   { programme: 'M.Tech', semester: 2, branch: 'PCS', code: 'CS522',  name: 'Advanced Software Engineering' },
   { programme: 'M.Tech', semester: 2, branch: 'PCS', code: 'CA522',  name: 'Computer Vision Applications' },
   { programme: 'M.Tech', semester: 2, branch: 'PCS', code: 'CD522',  name: 'Statistical Foundations for Data Science' },
-  { programme: 'M.Tech', semester: 2, branch: 'PCW', code: 'WCS524', name: 'Problem Solving Using AI' },
+  { programme: 'M.Tech', semester: 2, branch: 'PCW', code: 'WCS524', name: 'Problem Solving Using Artificial Intelligence' },
+  // 5Y Int B.Tech Sem 8 — ECE
+  { programme: '5Y Int B.Tech', semester: 8, branch: 'IEC', code: 'MA402', name: 'Modeling and Simulation' },
 ];
 
-// ── Helper: get courses for programme + semester ───────────────────────────────
+// ── Helper: get course for a student section (used for evening shift) ─────────
+export function getCourseForStudentSection(section = '') {
+  const programme = getProgrammeFromSection(section);
+
+  // Extract semester from section string — handles "4th Sem", "8th Sem", "2nd Sem" etc.
+  const semMatch = section.match(/(\d+)(st|nd|rd|th)\s*Sem/i);
+  const semester = semMatch ? Number(semMatch[1]) : null;
+  if (!semester) return null;
+
+  // Determine branch from section string
+  const branchMap = {
+    'ECE AI&ML': 'ECE-AI',
+    'ECE VLSI':  'VLSI',
+    'ECE':       'ECE',
+    'Cyber Security': 'CySec',
+    'CySec':     'CySec',
+    'CSE (AIR)': 'ICS',
+    'CSE (DS)':  'ICS',
+    'CSE (SE)':  'ICS',
+    'CSE (WP)':  'PCW',
+    'CSE (Working Professional)': 'PCW',
+    'CSE (DS) (2025': 'PCS',
+    'CSE (AIR) (2025': 'PCS',
+    'CSE (SE) (2025':  'PCS',
+    'CSE':       'CSE',
+    'AI':        'AI',
+    'ML':        'ML',
+    'DS':        'DS',
+    'IT':        'IT',
+    'ICS':       'ICS',
+    'IEC':       'IEC',
+    'BCA':       'BCA',
+    'MCA':       'MCA-AI',
+    'PCS':       'PCS',
+    'PCW':       'PCW',
+  };
+
+  let branch = null;
+  for (const [key, val] of Object.entries(branchMap)) {
+    if (section.includes(key)) { branch = val; break; }
+  }
+  if (!branch) return null;
+
+  const course = COURSES.find(c => c.programme === programme && c.semester === semester && c.branch === branch);
+  return course ? { code: course.code, name: course.name } : null;
+}
 export function getCoursesFor(programme, semester) {
   if (!programme) return [];
   return COURSES.filter(c =>
@@ -131,11 +194,14 @@ export function getCourseNameByCode(code) {
 
 // ── Helper: get programme from student section ────────────────────────────────
 export function getProgrammeFromSection(section = '') {
-  if (section.includes('5Y Int') || section.includes('Integrated B.Tech')) return '5Y Int B.Tech';
-  if (section.includes('M.Tech') || section.includes('MTech')) return 'M.Tech';
-  if (section.includes('MCA')) return 'MCA';
-  if (section.includes('BCA')) return 'BCA';
-  if (section.includes('MBA')) return 'MBA';
+  if (section.includes('5Y Int B.Tech') || section.includes('5Y Integrated') ||
+      section.includes('Int BTech') || section.includes('Int. B.Tech'))
+    return '5Y Int B.Tech';
+  if (section.includes('M.Tech') || section.includes('MTech'))
+    return 'M.Tech';
+  if (section.includes('MCA'))  return 'MCA';
+  if (section.includes('BCA'))  return 'BCA';
+  if (section.includes('MBA'))  return 'MBA';
   if (section.includes('BA LLB') || section.includes('LLB')) return 'BA LLB';
   if (section.includes('B.Tech') || section.includes('BTech')) return 'B.Tech';
   return 'B.Tech';

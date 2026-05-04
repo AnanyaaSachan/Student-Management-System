@@ -1,0 +1,249 @@
+/* ── SeatingTable.css ─────────────────────────────────────────────────────── */
+
+.seating-wrapper {
+  overflow-x: auto;
+  padding: 16px;
+}
+
+/* ── Header block above the table ─────────────────────────────────────────── */
+.seating-header {
+  text-align: center;
+  margin-bottom: 12px;
+}
+.seating-header h2 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 2px;
+}
+.seating-header p {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* ── Main table ────────────────────────────────────────────────────────────── */
+.seating-table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 700px;
+  font-size: 11px;
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+/* ── WHITE BOARD header row ────────────────────────────────────────────────── */
+.seating-table .wb-row td {
+  padding: 6px 4px;
+  border: none;
+}
+.seating-table .wb-cell {
+  background: #1e293b;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-align: center;
+  padding: 6px 8px !important;
+  border-radius: 6px;
+}
+.seating-table .wb-gap {
+  background: transparent;
+  border: none;
+  width: 28px;
+}
+
+/* ── DESK label row ────────────────────────────────────────────────────────── */
+.seating-table .desk-row td {
+  text-align: center;
+  font-weight: 700;
+  font-size: 11px;
+  color: #111827;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 4px 2px;
+  border: 1px solid #d1d5db;
+  background: #f3f4f6;
+}
+.seating-table .desk-gap {
+  background: transparent;
+  border: none !important;
+  width: 28px;
+}
+
+/* ── Data rows ─────────────────────────────────────────────────────────────── */
+.seating-table .data-row td {
+  border: 1px solid #d1d5db;
+  padding: 4px 6px;
+  text-align: center;
+  vertical-align: middle;
+  height: 36px;
+  white-space: nowrap;
+}
+
+/* Gap column — no border, just spacing */
+.seating-table .gap-cell {
+  border: none !important;
+  background: transparent !important;
+  width: 28px;
+  min-width: 28px;
+}
+
+/* Empty cell */
+.seating-table .empty-cell {
+  background: #f9fafb;
+  color: #d1d5db;
+}
+
+/* Roll number cell */
+.seating-table .roll-cell {
+  background: #fefce8;
+  color: #1f2937;
+  font-weight: 600;
+  font-size: 11px;
+  min-width: 100px;
+}
+
+/* Repeat student — roll starts with R- → red text */
+.seating-table .roll-repeat {
+  background: #fef2f2;
+  color: #dc2626;
+  font-weight: 700;
+}
+
+/* M.Tech / special batch — 255PCS/255PCW → yellow highlight (like sheet) */
+.seating-table .roll-mtech {
+  background: #fef08a;
+  color: #713f12;
+  font-weight: 700;
+}
+
+/* ── Student Detail summary table ──────────────────────────────────────────── */
+.student-detail {
+  margin-top: 20px;
+}
+.student-detail h3 {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #374151;
+  margin: 0 0 8px;
+}
+.detail-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 11px;
+}
+.detail-table th,
+.detail-table td {
+  border: 1px solid #d1d5db;
+  padding: 5px 10px;
+  text-align: left;
+}
+.detail-table th {
+  background: #f3f4f6;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+.detail-table td:last-child {
+  text-align: right;
+  font-weight: 700;
+}
+.detail-table .total-row td {
+  background: #f9fafb;
+  font-weight: 700;
+}
+
+/* ── Print button ──────────────────────────────────────────────────────────── */
+.print-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  background: #1e293b;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.print-btn:hover {
+  background: #334155;
+}
+
+/* ── NB room table (New Building IL-series) ────────────────────────────────── */
+.seating-table-nb {
+  min-width: 900px;
+}
+.seating-table-nb .data-row td {
+  min-width: 88px;
+}
+
+/* ── Small room table (IT-series) ──────────────────────────────────────────── */
+.seating-table-small {
+  min-width: unset;
+  width: auto;
+  margin: 0 auto;
+}
+.seating-table-small .wb-cell {
+  /* single board spans all 5 cols */
+}
+.seating-table-small .data-row td {
+  min-width: 110px;
+}
+
+/* ── @media print ──────────────────────────────────────────────────────────── */
+@media print {
+  /* Hide everything except the seating plan */
+  body > * { display: none !important; }
+  .seating-print-root { display: block !important; }
+
+  .seating-print-root {
+    padding: 0;
+    margin: 0;
+  }
+
+  .print-btn,
+  .room-nav,
+  .room-dots,
+  .course-legend {
+    display: none !important;
+  }
+
+  .seating-wrapper {
+    padding: 4px;
+    overflow: visible;
+  }
+
+  .seating-table {
+    font-size: 9px;
+    min-width: unset;
+    width: 100%;
+  }
+
+  .seating-table .roll-cell,
+  .seating-table .roll-repeat {
+    min-width: unset;
+    font-size: 9px;
+    padding: 2px 3px;
+    height: 24px;
+  }
+
+  .seating-table .wb-cell {
+    font-size: 9px;
+    padding: 3px 4px !important;
+  }
+
+  .detail-table {
+    font-size: 9px;
+  }
+
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+}

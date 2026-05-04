@@ -162,10 +162,10 @@ const MORNING_ROOMS = [
   { room_id: 1007, capacity: 60 },
   { room_id: 1008, capacity: 55 },
   { room_id: 1009, capacity: 45 },
-  { room_id: 1013, capacity: 65 },
-  { room_id: 1014, capacity: 65 },
-  { room_id: 1015, capacity: 65 },
-  { room_id: 1016, capacity: 65 },
+  { room_id: 1013, capacity: 65 }, // IL-103 New Building
+  { room_id: 1014, capacity: 65 }, // IL-104 New Building
+  { room_id: 1015, capacity: 65 }, // IL-105 New Building
+  { room_id: 1016, capacity: 65 }, // IL-106 New Building
 ];
 
 export function getMorningAllocations() {

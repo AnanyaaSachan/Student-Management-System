@@ -49,17 +49,29 @@ const EMPTY_FORM = {
 
 // ── FilterSelect component ────────────────────────────────────────────────────
 function FilterSelect({ label, value, onChange, options }) {
+  // Derive a short display label: "All Schools" → "School", "All Branches" → "Branch"
+  const fieldLabel = label
+    .replace(/^All\s+/, '')   // remove "All "
+    .replace(/ches$/, 'ch')   // Branches → Branch, Batches → Batch
+    .replace(/ies$/, 'y')     // e.g. Categories → Category
+    .replace(/ses$/, 's')     // e.g. Classes → Class (keep as-is)
+    .replace(/(?<!ch|sh|ss)s$/, ''); // remove trailing s only if not after ch/sh/ss
   return (
     <div className="relative">
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="appearance-none w-full bg-white border border-gray-200 rounded-lg px-3 py-2 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer"
-      >
-        <option value="">{label}</option>
-        {options.map(o => <option key={o} value={o}>{o}</option>)}
-      </select>
-      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+        {fieldLabel}
+      </label>
+      <div className="relative">
+        <select
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          className="appearance-none w-full bg-white border border-gray-200 rounded-lg px-3 py-2 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer"
+        >
+          <option value="">{label}</option>
+          {options.map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+      </div>
     </div>
   );
 }
