@@ -1,0 +1,7 @@
+{
+  "buildCommand": "cd exam-system && npm install && npm run build",
+  "outputDirectory": "exam-system/dist",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
