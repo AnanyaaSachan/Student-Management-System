@@ -1,4 +1,4 @@
-# Exam Management System
+# Student Management System
 
 A full-stack university exam management platform developed for Gautam Buddha University to streamline student records, seating allocation, invigilation, attendance management, and exam operations.
 
