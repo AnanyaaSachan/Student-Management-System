@@ -60,7 +60,7 @@ A full-stack university exam management platform developed for Gautam Buddha Uni
 
 ### Database
 
-* MongoDB
+* SQLite
 
 ### Deployment
 
